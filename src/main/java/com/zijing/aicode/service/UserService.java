@@ -2,8 +2,8 @@ package com.zijing.aicode.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
-import com.zijing.aicode.entity.dto.UserQueryRequest;
-import com.zijing.aicode.entity.dto.UserVO;
+import com.zijing.aicode.entity.dto.user.UserQueryRequest;
+import com.zijing.aicode.entity.vo.UserVO;
 import com.zijing.aicode.entity.po.User;
 import com.zijing.aicode.entity.vo.LoginUserVO;
 import jakarta.servlet.http.HttpServletRequest;

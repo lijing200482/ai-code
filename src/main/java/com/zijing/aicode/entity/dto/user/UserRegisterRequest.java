@@ -1,4 +1,4 @@
-package com.zijing.aicode.entity.dto;
+package com.zijing.aicode.entity.dto.user;
 
 import lombok.Data;
 

@@ -5,8 +5,8 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
-import com.zijing.aicode.entity.dto.UserQueryRequest;
-import com.zijing.aicode.entity.dto.UserVO;
+import com.zijing.aicode.entity.dto.user.UserQueryRequest;
+import com.zijing.aicode.entity.vo.UserVO;
 import com.zijing.aicode.entity.enums.UserRoleEnum;
 import com.zijing.aicode.entity.po.User;
 import com.zijing.aicode.entity.vo.LoginUserVO;
@@ -30,7 +30,7 @@ import static com.zijing.aicode.constant.UserConstant.USER_LOGIN_STATE;
  * @author zijing
  */
 @Service
-public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements UserService{
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
 
     @Override
@@ -157,7 +157,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>  implements U
         LoginUserVO loginUserVO = new LoginUserVO();
         BeanUtil.copyProperties(user, loginUserVO);
         return loginUserVO;
-}
+    }
 
     @Override
     public UserVO getUserVO(User user) {

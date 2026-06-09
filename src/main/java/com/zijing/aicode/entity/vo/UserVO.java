@@ -1,4 +1,4 @@
-package com.zijing.aicode.entity.dto;
+package com.zijing.aicode.entity.vo;
 
 import lombok.Data;
 

@@ -30,9 +30,15 @@ public class CodeFileSaver {
      */
     public static File saveMultiFileCodeResult(MultiFileCodeResult result) {
         String baseDirPath = buildUniqueDir(CodeGenTypeEnum.MULTI_FILE.getValue());
-        writeFile(baseDirPath, "index.html", result.getHtmlCode());
-        writeFile(baseDirPath, "style.css", result.getCssCode());
-        writeFile(baseDirPath, "script.js", result.getJsCode());
+        if (result.getHtmlCode() != null) {
+            writeFile(baseDirPath, "index.html", result.getHtmlCode());
+        }
+        if (result.getCssCode() != null) {
+            writeFile(baseDirPath, "style.css", result.getCssCode());
+        }
+        if (result.getJsCode() != null) {
+            writeFile(baseDirPath, "script.js", result.getJsCode());
+        }
         return new File(baseDirPath);
     }
 

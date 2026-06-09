@@ -28,6 +28,7 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <langchain4j.version>1.16.1</langchain4j.version>
     </properties>
     <dependencies>
         <dependency>
@@ -88,7 +89,7 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
-            <version>1.16.1</version>
+            <version>${langchain4j.version}</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
@@ -98,7 +99,7 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-reactor</artifactId>
-            <version>1.1.0-beta7</version>
+            <version>1.16.1-beta26</version>
         </dependency>
     </dependencies>
     <build>

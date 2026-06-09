@@ -14,23 +14,23 @@ import static org.junit.jupiter.api.Assertions.*;
 class AiCodeGeneratorServiceTest {
 
     @Resource
-    private AiCodeGeneratorService aiCodeGeneratorService;
+    private AiCodeGeneratorService streamingAiCodeGeneratorService;
 
     @Test
     void generateHtmlCode() {
-        HtmlCodeResult htmlCodeResult = aiCodeGeneratorService.generateHtmlCode("请生成一个登录页面 20行");
+        HtmlCodeResult htmlCodeResult = streamingAiCodeGeneratorService.generateHtmlCode("请生成一个登录页面 20行");
         Assertions.assertNotNull(htmlCodeResult);
     }
 
     @Test
     void generateMultiFileCode() {
-        MultiFileCodeResult multiFileCodeResult = aiCodeGeneratorService.generateMultiFileCode("请生成一个登录页面 50行");
+        MultiFileCodeResult multiFileCodeResult = streamingAiCodeGeneratorService.generateMultiFileCode("请生成一个登录页面 50行");
         Assertions.assertNotNull(multiFileCodeResult);
     }
 
     @Test
     void generateHtmlCodeStream() {
-        aiCodeGeneratorService.generateHtmlCodeStream("请生成一个登录页面 20行").subscribe(System.out::println);
+        streamingAiCodeGeneratorService.generateHtmlCodeStream("请生成一个登录页面 20行").subscribe(System.out::println);
 
     }
 }

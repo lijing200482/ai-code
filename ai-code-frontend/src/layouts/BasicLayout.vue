@@ -1,26 +1,20 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import type { MenuProps } from 'ant-design-vue'
+import { useUserStore } from '@/stores/user'
+import GlobalHeader from '@/components/layout/GlobalHeader.vue'
+import GlobalFooter from '@/components/layout/GlobalFooter.vue'
 
 const router = useRouter()
+const userStore = useUserStore()
 
-// 菜单项配置 — 可通过此配置增删菜单
-const menuItems: MenuProps['items'] = [
-  {
-    key: '/',
-    label: '首页',
-  },
-  {
-    key: '/about',
-    label: '关于',
-  },
-]
+// 页面加载时自动恢复登录状态（Pinia 内存状态在刷新后丢失）
+onMounted(() => {
+  userStore.fetchLoginUser()
+})
 
-const selectedKeys = ref<string[]>(['/'])
+const selectedKeys = ref<string[]>([router.currentRoute.value.path || '/'])
 
-// 监听路由变化，同步菜单选中状态
-const routePath = '/'
 function updateSelected(path: string) {
   selectedKeys.value = [path]
 }
@@ -28,15 +22,11 @@ function updateSelected(path: string) {
 router.afterEach((to) => {
   updateSelected(to.path)
 })
-
-function handleMenuClick(e: { key: string }) {
-  // 路由跳转由 RouterView + 路由匹配处理
-}
 </script>
 
 <template>
   <a-layout class="layout">
-    <GlobalHeader :menu-items="menuItems" :selected-key="routePath" />
+    <GlobalHeader :selected-key="selectedKeys[0]" />
     <a-layout-content>
       <RouterView />
     </a-layout-content>

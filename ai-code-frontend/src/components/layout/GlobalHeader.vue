@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import type { MenuProps } from 'ant-design-vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 
 defineProps<{
-  menuItems?: MenuProps['items']
   selectedKey: string
 }>()
 
-const emit = defineEmits<{
-  'menu-click': [e: { key: string }]
-}>()
-
 const router = useRouter()
+const userStore = useUserStore()
 
 function handleMenuClick(e: { key: string }) {
   router.push(e.key)
-  emit('menu-click', e)
+}
+
+function handleLogin() {
+  router.push('/user/login')
+}
+
+function handleLogout() {
+  userStore.logout()
+  router.push('/user/login')
 }
 </script>
 
@@ -28,30 +32,38 @@ function handleMenuClick(e: { key: string }) {
 
     <div class="menu-wrapper">
       <a-menu
-        v-if="menuItems?.length"
         mode="horizontal"
         :selected-keys="[selectedKey]"
-        :items="menuItems"
         @click="handleMenuClick"
         class="main-menu"
-      />
+      >
+        <a-menu-item key="/">首页</a-menu-item>
+        <a-menu-item key="/about">关于</a-menu-item>
+        <a-menu-item v-if="userStore.isAdmin" key="/admin/user">用户管理</a-menu-item>
+      </a-menu>
     </div>
 
     <div class="user-wrapper">
-      <a-button type="primary" @click="handleLogin">登录</a-button>
+      <template v-if="userStore.isLoggedIn">
+        <a-dropdown>
+          <a-button type="text" class="user-btn">
+            {{ userStore.userName || userStore.loginUser?.userAccount }}
+          </a-button>
+          <template #overlay>
+            <a-menu>
+              <a-menu-item key="logout" @click="handleLogout">
+                退出登录
+              </a-menu-item>
+            </a-menu>
+          </template>
+        </a-dropdown>
+      </template>
+      <template v-else>
+        <a-button type="primary" @click="handleLogin">登录</a-button>
+      </template>
     </div>
   </a-layout-header>
 </template>
-
-<script lang="ts">
-export default {
-  methods: {
-    handleLogin() {
-      console.log('登录按钮点击')
-    },
-  },
-}
-</script>
 
 <style scoped>
 .header {

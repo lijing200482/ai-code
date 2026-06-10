@@ -1,9 +1,9 @@
 package com.zijing.aicode.core.saver;
 
 import cn.hutool.core.io.FileUtil;
-import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.zijing.aicode.ai.model.enums.CodeGenTypeEnum;
+import com.zijing.aicode.constant.AppConstant;
 import com.zijing.aicode.exception.BusinessException;
 import com.zijing.aicode.exception.ErrorCode;
 
@@ -16,14 +16,14 @@ import java.nio.charset.StandardCharsets;
  */
 public abstract class CodeFileSaverTemplate<T> {
 
-    private static final String FILE_SAVE_PATH = System.getProperty("user.dir") + "/tmp/code_output";
+    private static final String FILE_SAVE_PATH = AppConstant.CODE_OUTPUT_ROOT_DIR;
 
 
-    public final File saveCode(T result) {
+    public final File saveCode(T result, Long appId) {
         //1.验证输入
         verifyInput(result);
         //2.构建唯一目录路径
-        String dirPath = buildUniqueDir();
+        String dirPath = buildUniqueDir(appId);
         //3.保存文件
         saveFiles(result, dirPath);
         //4.返回保存的目录对象
@@ -43,9 +43,9 @@ public abstract class CodeFileSaverTemplate<T> {
     /**
      * 构建唯一目录路径，子类可根据需要重写此方法进行具体的目录构建逻辑
      */
-    protected final String buildUniqueDir() {
+    protected final String buildUniqueDir(Long appId) {
         String codeType = getCodeType().getValue();
-        String uniqueName = StrUtil.format("{}_{}", codeType, IdUtil.getSnowflakeNextId());
+        String uniqueName = StrUtil.format("{}_{}", codeType, appId);
         String dirPath = FILE_SAVE_PATH + File.separator + uniqueName;
         FileUtil.mkdir(dirPath);
         return dirPath;

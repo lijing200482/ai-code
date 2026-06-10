@@ -33,6 +33,13 @@ import static com.zijing.aicode.constant.UserConstant.USER_LOGIN_STATE;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
 
+    /**
+     * 注册用户
+     * @param userAccount   用户账户
+     * @param userPassword  用户密码
+     * @param checkPassword 校验密码
+     * @return
+     */
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
         // 1. 校验
@@ -70,6 +77,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return user.getId();
     }
 
+    /**
+     * 登入
+     * @param userAccount  用户账户
+     * @param userPassword 用户密码
+     * @param request
+     * @return
+     */
     @Override
     public LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         // 1. 校验
@@ -99,6 +113,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return this.getLoginUserVO(user);
     }
 
+    /**
+     * 获取登入的用户
+     * @param request
+     * @return
+     */
     @Override
     public User getLoginUser(HttpServletRequest request) {
         // 先判断是否已登录
@@ -107,7 +126,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (currentUser == null || currentUser.getId() == null) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
-        // 从数据库查询（追求性能的话可以注释，直接返回上述结果）
+        //从数据库查询（追求性能的话可以注释，直接返回上述结果）
         long userId = currentUser.getId();
         currentUser = this.getById(userId);
         if (currentUser == null) {
@@ -116,6 +135,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return currentUser;
     }
 
+    /**
+     * 用户退出登入
+     * @param request
+     * @return
+     */
     @Override
     public boolean userLogout(HttpServletRequest request) {
         // 先判断是否已登录
@@ -128,6 +152,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return true;
     }
 
+    /**
+     * 构造查询条件
+     * @param userQueryRequest
+     * @return
+     */
     @Override
     public QueryWrapper getQueryWrapper(UserQueryRequest userQueryRequest) {
         if (userQueryRequest == null) {
@@ -149,6 +178,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .orderBy(sortField, "ascend".equals(sortOrder));
     }
 
+    /**
+     * 构造LoginUserVO对象
+     * @param user
+     * @return
+     */
     @Override
     public LoginUserVO getLoginUserVO(User user) {
         if (user == null) {
@@ -159,6 +193,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return loginUserVO;
     }
 
+    /**
+     * 构造UserVO对象
+     * @param user
+     * @return
+     */
     @Override
     public UserVO getUserVO(User user) {
         if (user == null) {
@@ -169,6 +208,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return userVO;
     }
 
+    /**
+     * 获取用户列表
+     * @param userList
+     * @return
+     */
     @Override
     public List<UserVO> getUserVOList(List<User> userList) {
         if (CollUtil.isEmpty(userList)) {
@@ -177,6 +221,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return userList.stream().map(this::getUserVO).collect(Collectors.toList());
     }
 
+    /**
+     * 密码加密
+     * @param userPassword
+     * @return
+     */
     @Override
     public String getEncryptPassword(String userPassword) {
         // 盐值，混淆密码

@@ -2,6 +2,7 @@ package com.zijing.aicode.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.zijing.aicode.ai.model.enums.CodeGenTypeEnum;
@@ -11,10 +12,7 @@ import com.zijing.aicode.common.DeleteRequest;
 import com.zijing.aicode.common.ResultUtils;
 import com.zijing.aicode.constant.AppConstant;
 import com.zijing.aicode.constant.UserConstant;
-import com.zijing.aicode.entity.dto.app.AppAddRequest;
-import com.zijing.aicode.entity.dto.app.AppAdminUpdateRequest;
-import com.zijing.aicode.entity.dto.app.AppQueryRequest;
-import com.zijing.aicode.entity.dto.app.AppUpdateRequest;
+import com.zijing.aicode.entity.dto.app.*;
 import com.zijing.aicode.entity.po.User;
 import com.zijing.aicode.entity.vo.AppVO;
 import com.zijing.aicode.exception.BusinessException;
@@ -23,15 +21,20 @@ import com.zijing.aicode.exception.ThrowUtils;
 import com.zijing.aicode.service.UserService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import com.zijing.aicode.entity.po.App;
 import com.zijing.aicode.service.AppService;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
- * 应用 控制层。
+ * 应用控制层
  *
  * @author zijing
  */
@@ -43,6 +46,54 @@ public class AppController {
     private AppService appService;
     @Resource
     private UserService userService;
+
+
+    /**
+     * 对话生成应用代码
+     * @param appId
+     * @param message
+     * @param request
+     * @return
+     */
+    @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId, @RequestParam String message, HttpServletRequest request) {
+        //参数校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "appId不能为空");
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "消息不能为空");
+        //获取登入的用户
+        User loginUser = userService.getLoginUser(request);
+        //调用服务生成代码
+        Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser);
+        return contentFlux.map(chnuk -> {
+            //将内容封装
+            Map<String, String> map = Map.of("d", chnuk);
+            String data = JSONUtil.toJsonStr(map);
+            return ServerSentEvent.<String>builder().data(data).build();
+        }).concatWith(Mono.just(
+                //发送结束事件
+                ServerSentEvent.<String>builder().event("done").data("").build()));
+    }
+
+    /**
+     * 应用部署
+     *
+     * @param appDeployRequest 部署请求
+     * @param request          请求
+     * @return 部署 URL
+     */
+    @PostMapping("/deploy")
+    public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+
+        // 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+        // 调用服务部署应用
+        String deployUrl = appService.deployApp(appId, loginUser);
+        return ResultUtils.success(deployUrl);
+    }
 
     /**
      * 创建应用
@@ -240,6 +291,7 @@ public class AppController {
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
     }
+
     /**
      * 管理员分页获取应用列表
      *
@@ -248,8 +300,7 @@ public class AppController {
      */
     @PostMapping("/admin/list/page/vo")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Page<AppVO>> listAppVOByPageByAdmin(@RequestBody AppQueryRequest appQueryRequest)
-    {
+    public BaseResponse<Page<AppVO>> listAppVOByPageByAdmin(@RequestBody AppQueryRequest appQueryRequest) {
         ThrowUtils.throwIf(appQueryRequest == null, ErrorCode.PARAMS_ERROR);
         long pageNum = appQueryRequest.getPageNum();
         long pageSize = appQueryRequest.getPageSize();

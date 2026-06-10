@@ -1,91 +1,228 @@
-/// <reference types="vite/client" />
-
 declare namespace API {
-  /** 统一响应格式 */
-  interface BaseResponse<T = unknown> {
-    code: number
-    data: T
+  type AppAddRequest = {
+    initPrompt?: string
+  }
+
+  type AppAdminUpdateRequest = {
+    id?: number
+    appName?: string
+    cover?: string
+    priority?: number
+  }
+
+  type AppDeployRequest = {
+    appId?: number
+  }
+
+  type AppQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+    id?: number
+    appName?: string
+    cover?: string
+    initPrompt?: string
+    codeGenType?: string
+    deployKey?: string
+    priority?: number
+    userId?: number
+  }
+
+  type AppUpdateRequest = {
+    id?: number
+    appName?: string
+  }
+
+  type AppVO = {
+    id?: number
+    appName?: string
+    cover?: string
+    initPrompt?: string
+    codeGenType?: string
+    deployKey?: string
+    deployedTime?: string
+    priority?: number
+    userId?: number
+    createTime?: string
+    updateTime?: string
+    user?: UserVO
+  }
+
+  type BaseResponseAppVO = {
+    code?: number
+    data?: AppVO
+    message?: string
+  }
+
+  type BaseResponseBoolean = {
+    code?: number
+    data?: boolean
+    message?: string
+  }
+
+  type BaseResponseLoginUserVO = {
+    code?: number
+    data?: LoginUserVO
+    message?: string
+  }
+
+  type BaseResponseLong = {
+    code?: number
+    data?: number
+    message?: string
+  }
+
+  type BaseResponsePageAppVO = {
+    code?: number
+    data?: PageAppVO
+    message?: string
+  }
+
+  type BaseResponsePageUserVO = {
+    code?: number
+    data?: PageUserVO
+    message?: string
+  }
+
+  type BaseResponseString = {
+    code?: number
+    data?: string
+    message?: string
+  }
+
+  type BaseResponseUser = {
+    code?: number
+    data?: User
+    message?: string
+  }
+
+  type BaseResponseUserVO = {
+    code?: number
+    data?: UserVO
+    message?: string
+  }
+
+  type chatToGenCodeParams = {
+    appId: number
     message: string
   }
 
-  /** 分页结果 */
-  interface PageResult<T> {
-    records: T[]
-    totalRow: number
-    pageNum: number
-    pageSize: number
-    totalPage: number
+  type DeleteRequest = {
+    id?: number
   }
 
-  /** 脱敏用户信息（公开） */
-  interface UserVO {
-    id: string
-    userAccount: string
-    userName: string
-    userAvatar?: string
-    userProfile?: string
-    userRole: string
-    createTime: string
+  type getAppVOByIdByAdminParams = {
+    id: number
   }
 
-  /** 登录用户信息（当前登录用户） */
-  interface LoginUserVO {
-    id: string
-    userAccount: string
-    userName: string
-    userAvatar?: string
-    userProfile?: string
-    userRole: string
-    createTime: string
-    updateTime: string
+  type getAppVOByIdParams = {
+    id: number
   }
 
-  /** 注册请求 */
-  interface UserRegisterRequest {
-    userAccount: string
-    userPassword: string
-    checkPassword: string
+  type getUserByIdParams = {
+    id: number
   }
 
-  /** 登录请求 */
-  interface UserLoginRequest {
-    userAccount: string
-    userPassword: string
+  type getUserVOByIdParams = {
+    id: number
   }
 
-  /** 新增用户请求 */
-  interface UserAddRequest {
-    userName: string
-    userAccount: string
-    userAvatar?: string
-    userProfile?: string
-    userRole: string
-  }
-
-  /** 更新用户请求 */
-  interface UserUpdateRequest {
-    id: string
+  type LoginUserVO = {
+    id?: number
+    userAccount?: string
     userName?: string
+    userAvatar?: string
+    userProfile?: string
+    userRole?: string
+    createTime?: string
+    updateTime?: string
+  }
+
+  type PageAppVO = {
+    records?: AppVO[]
+    pageNumber?: number
+    pageSize?: number
+    totalPage?: number
+    totalRow?: number
+    optimizeCountQuery?: boolean
+  }
+
+  type PageUserVO = {
+    records?: UserVO[]
+    pageNumber?: number
+    pageSize?: number
+    totalPage?: number
+    totalRow?: number
+    optimizeCountQuery?: boolean
+  }
+
+  type ServerSentEventString = true
+
+  type serveStaticResourceParams = {
+    deployKey: string
+  }
+
+  type User = {
+    id?: number
+    userAccount?: string
+    userPassword?: string
+    userName?: string
+    userAvatar?: string
+    userProfile?: string
+    userRole?: string
+    editTime?: string
+    createTime?: string
+    updateTime?: string
+    isDelete?: number
+  }
+
+  type UserAddRequest = {
+    userName?: string
+    userAccount?: string
     userAvatar?: string
     userProfile?: string
     userRole?: string
   }
 
-  /** 查询用户请求 */
-  interface UserQueryRequest {
-    id?: string
+  type UserLoginRequest = {
+    userAccount?: string
+    userPassword?: string
+  }
+
+  type UserQueryRequest = {
+    pageNum?: number
+    pageSize?: number
+    sortField?: string
+    sortOrder?: string
+    id?: number
     userName?: string
     userAccount?: string
     userProfile?: string
     userRole?: string
-    pageNum: number
-    pageSize: number
-    sortField?: string
-    sortOrder?: string
   }
 
-  /** 删除请求 */
-  interface DeleteRequest {
-    id: string
+  type UserRegisterRequest = {
+    userAccount?: string
+    userPassword?: string
+    checkPassword?: string
+  }
+
+  type UserUpdateRequest = {
+    id?: number
+    userName?: string
+    userAvatar?: string
+    userProfile?: string
+    userRole?: string
+  }
+
+  type UserVO = {
+    id?: number
+    userAccount?: string
+    userName?: string
+    userAvatar?: string
+    userProfile?: string
+    userRole?: string
+    createTime?: string
   }
 }

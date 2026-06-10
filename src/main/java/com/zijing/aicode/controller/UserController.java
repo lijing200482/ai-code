@@ -25,7 +25,6 @@ import com.zijing.aicode.service.UserService;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-
 /**
  * 用户 控制层。
  *
@@ -89,8 +88,8 @@ public class UserController {
      */
     @PostMapping("/logout")
     public BaseResponse<Boolean> userLogout(HttpServletRequest request) {
-        ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
         boolean result = userService.userLogout(request);
+        ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
         return ResultUtils.success(result);
     }
 
@@ -113,6 +112,16 @@ public class UserController {
     }
 
     /**
+     * 根据 id 获取包装类
+     */
+    @GetMapping("/get/vo")
+    public BaseResponse<UserVO> getUserVOById(long id) {
+        BaseResponse<User> response = getUserById(id);
+        User user = response.getData();
+        return ResultUtils.success(userService.getUserVO(user));
+    }
+
+    /**
      * 根据 id 获取用户（仅管理员）
      */
     @GetMapping("/get")
@@ -122,16 +131,6 @@ public class UserController {
         User user = userService.getById(id);
         ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
         return ResultUtils.success(user);
-    }
-
-    /**
-     * 根据 id 获取包装类
-     */
-    @GetMapping("/get/vo")
-    public BaseResponse<UserVO> getUserVOById(long id) {
-        BaseResponse<User> response = getUserById(id);
-        User user = response.getData();
-        return ResultUtils.success(userService.getUserVO(user));
     }
 
     /**

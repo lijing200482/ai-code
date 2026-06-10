@@ -72,9 +72,24 @@ public interface UserService extends IService<User> {
      */
     LoginUserVO getLoginUserVO(User user);
 
+    /**
+     * 构造用户VO对象
+     * @param user
+     * @return
+     */
     UserVO getUserVO(User user);
 
+    /**
+     * 获取用户列表
+     * @param userList
+     * @return
+     */
     List<UserVO> getUserVOList(List<User> userList);
 
+    /**
+     * 获取加密后的密码
+     * @param userPassword
+     * @return
+     */
     String getEncryptPassword(String userPassword);
 }

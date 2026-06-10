@@ -11,11 +11,6 @@ const router = createRouter({
       component: HomeView,
     },
     {
-      path: '/about',
-      name: 'about',
-      component: () => import('../views/AboutView.vue'),
-    },
-    {
       path: '/user/login',
       name: 'userLogin',
       component: () => import('../views/user/UserLoginView.vue'),
@@ -24,6 +19,24 @@ const router = createRouter({
       path: '/admin/user',
       name: 'adminUser',
       component: () => import('../views/admin/UserManageView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/app/chat/:appId',
+      name: 'appChat',
+      component: () => import('../views/AppChatView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/app/edit/:appId',
+      name: 'appEdit',
+      component: () => import('../views/AppEditView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/app',
+      name: 'adminApp',
+      component: () => import('../views/admin/AppManageView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true },
     },
   ],

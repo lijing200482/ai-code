@@ -37,5 +37,6 @@ router.afterEach((to) => {
 <style scoped>
 .layout {
   min-height: 100vh;
+  background: var(--bg-primary);
 }
 </style>

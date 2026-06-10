@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type AxiosRequestConfig } from 'axios'
 import { message } from 'ant-design-vue'
 
 // 创建 Axios 实例
@@ -44,4 +44,13 @@ myAxios.interceptors.response.use(
   },
 )
 
-export default myAxios
+// 覆盖类型：拦截器统一返回了 response.data, 所以 get/post 直接返回 T 而非 AxiosResponse<T>
+type RequestInstance = {
+  <T = any>(url: string, config?: AxiosRequestConfig): Promise<T>
+  get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>
+  post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>
+  put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>
+  delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>
+}
+
+export default myAxios as unknown as RequestInstance

@@ -10,7 +10,11 @@ const router = useRouter()
 const userStore = useUserStore()
 
 function handleMenuClick(e: { key: string }) {
-  router.push(e.key)
+  if (e.key === 'my-apps') {
+    router.push('/')
+  } else {
+    router.push(e.key)
+  }
 }
 
 function handleLogin() {
@@ -34,12 +38,12 @@ function handleLogout() {
       <a-menu
         mode="horizontal"
         :selected-keys="[selectedKey]"
-        @click="handleMenuClick"
         class="main-menu"
       >
-        <a-menu-item key="/">首页</a-menu-item>
-        <a-menu-item key="/about">关于</a-menu-item>
-        <a-menu-item v-if="userStore.isAdmin" key="/admin/user">用户管理</a-menu-item>
+        <a-menu-item key="/" @click="handleMenuClick({ key: '/' })">首页</a-menu-item>
+        <a-menu-item v-if="userStore.isLoggedIn" key="my-apps" @click="handleMenuClick({ key: 'my-apps' })">我的应用</a-menu-item>
+        <a-menu-item v-if="userStore.isAdmin" key="/admin/user" @click="handleMenuClick({ key: '/admin/user' })">用户管理</a-menu-item>
+        <a-menu-item v-if="userStore.isAdmin" key="/admin/app" @click="handleMenuClick({ key: '/admin/app' })">应用管理</a-menu-item>
       </a-menu>
     </div>
 
@@ -69,9 +73,10 @@ function handleLogout() {
 .header {
   display: flex;
   align-items: center;
-  height: 64px;
+  height: var(--header-height);
   padding: 0 24px;
-  background: #fff;
+  background: var(--bg-primary, #F6F7F2);
+  border-bottom: 1px solid var(--card-border);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
   z-index: 10;
 }
@@ -99,7 +104,6 @@ function handleLogout() {
 .menu-wrapper {
   flex: 1;
   margin: 0 24px;
-  overflow: hidden;
 }
 
 .main-menu {

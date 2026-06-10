@@ -39,7 +39,7 @@ const submitLoading = ref(false)
 async function fetchUsers() {
   loading.value = true
   try {
-    const res = await userApi.listUserByPage(queryForm)
+    const res = await userApi.listUserVoByPage(queryForm)
     if (res.code === 0 && res.data) {
       userList.value = res.data.records || []
       total.value = Number(res.data.totalRow) || 0
@@ -92,10 +92,10 @@ function openEditModal(record: API.UserVO) {
   modalTitle.value = '编辑用户'
   editingUser.value = record
   formModel.userName = record.userName || ''
-  formModel.userAccount = record.userAccount
+  formModel.userAccount = record.userAccount || ''
   formModel.userAvatar = record.userAvatar || ''
   formModel.userProfile = record.userProfile || ''
-  formModel.userRole = record.userRole
+  formModel.userRole = record.userRole || 'user'
   modalVisible.value = true
 }
 
@@ -161,7 +161,7 @@ function handleDelete(record: API.UserVO) {
     okButtonProps: { danger: true },
     onOk: async () => {
       try {
-        const res = await userApi.deleteUser({ id: record.id })
+        const res = await userApi.deleteUser({ id: String(record.id) })
         if (res.code === 0) {
           message.success('删除成功')
           fetchUsers()
@@ -181,11 +181,11 @@ const ROLE_MAP: Record<string, { label: string; color: string }> = {
   admin: { label: '管理员', color: 'red' },
   ban: { label: '封禁', color: 'default' },
 }
-function roleLabel(role: string) {
-  return ROLE_MAP[role]?.label || role
+function roleLabel(role?: string) {
+  return (role && ROLE_MAP[role]?.label) || role || '未知'
 }
-function roleColor(role: string) {
-  return ROLE_MAP[role]?.color || 'default'
+function roleColor(role?: string) {
+  return (role && ROLE_MAP[role]?.color) || 'default'
 }
 
 const columns = [
@@ -268,7 +268,7 @@ onMounted(() => {
           pageSize: queryForm.pageSize,
           total: total,
           showSizeChanger: true,
-          showTotal: (t: number) => `共 ${t} 条`,
+          showTotal: (total: number) => `共 ${total} 条`,
           onChange: handlePageChange,
         }"
         rowKey="id"

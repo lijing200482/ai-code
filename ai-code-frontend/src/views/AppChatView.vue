@@ -1,0 +1,284 @@
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
+import * as appApi from '@/api/appController'
+import { connectSSE } from '@/utils/sse'
+import { useUserStore } from '@/stores/user'
+
+const route = useRoute()
+const router = useRouter()
+const appId = route.params.appId as string
+const isViewOnly = route.query.view === '1'
+const userStore = useUserStore()
+
+const appDetail = ref<API.AppVO | null>(null)
+const loading = ref(true)
+const isOwner = ref(true)
+
+const messages = ref<Array<{ role: 'user' | 'ai'; content: string }>>([])
+const currentInput = ref('')
+const isGenerating = ref(false)
+const chatContainerRef = ref<HTMLElement | null>(null)
+const cancelSse = ref<(() => void) | null>(null)
+
+const generatedCode = ref('')
+const showPreview = ref(false)
+const previewIframe = ref<HTMLIFrameElement | null>(null)
+const previewUrl = ref('')
+
+const deployUrl = ref('')
+const deployLoading = ref(false)
+
+async function fetchAppDetail() {
+  loading.value = true
+  try {
+    const res = await appApi.getAppVoById({ id: appId })
+    if (res.code === 0 && res.data) {
+      appDetail.value = res.data
+      // 判断是否为应用所有者
+      isOwner.value = !res.data.userId || res.data.userId === userStore.loginUser?.id
+      // 查看模式：不自动发送消息；非查看模式：自动发送初始提示词
+      if (isViewOnly) {
+        loadExistingPreview()
+      } else if (res.data.initPrompt) {
+        messages.value.push({ role: 'user', content: res.data.initPrompt })
+        await nextTick()
+        startGeneration(res.data.initPrompt)
+      }
+    } else {
+      message.error('获取应用信息失败')
+    }
+  } catch {
+    message.error('请求异常')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 查看模式：加载已有作品预览
+function loadExistingPreview() {
+  const codeGenType = appDetail.value?.codeGenType || 'multiFile'
+  previewUrl.value = `http://localhost:8445/api/static/${codeGenType}_${appId}/`
+  showPreview.value = true
+  nextTick(() => { updatePreview() })
+}
+
+function startGeneration(messageText: string) {
+  if (isGenerating.value) return
+  isGenerating.value = true
+  showPreview.value = false
+  generatedCode.value = ''
+
+  messages.value.push({ role: 'ai', content: '' })
+  const aiMsgIndex = messages.value.length - 1
+  scrollToBottom()
+
+  cancelSse.value = connectSSE(
+    appId,
+    messageText,
+    {
+      onMessage: (data) => {
+        const aiMsg = messages.value[aiMsgIndex]
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed.d !== undefined) {
+            const chunk = typeof parsed.d === 'string' ? parsed.d : String(parsed.d)
+            aiMsg.content += chunk
+            generatedCode.value += chunk
+          } else {
+            aiMsg.content += data
+            generatedCode.value += data
+          }
+        } catch {
+          aiMsg.content += data
+          generatedCode.value += data
+        }
+        scrollToBottom()
+      },
+      onError: () => {
+        message.error('生成连接中断，请重试')
+        isGenerating.value = false
+      },
+      onComplete: () => {
+        isGenerating.value = false
+        showPreview.value = true
+        // 构建预览 URL，从 tmp/code_output 读取
+        const codeGenType = appDetail.value?.codeGenType || 'multiFile'
+        previewUrl.value = `http://localhost:8445/api/static/${codeGenType}_${appId}/`
+        nextTick(() => { updatePreview() })
+        // 格式化聊天消息
+        try {
+          const parsed = JSON.parse(generatedCode.value)
+          let display = '✅ 代码生成完成！\n\n'
+          if (parsed.htmlCode) {
+            display += '--- index.html ---\n' + parsed.htmlCode + '\n\n'
+          }
+          if (parsed.cssCode) {
+            display += '--- style.css ---\n' + parsed.cssCode + '\n\n'
+          }
+          if (parsed.jsCode) {
+            display += '--- script.js ---\n' + parsed.jsCode + '\n\n'
+          }
+          if (parsed.description) {
+            display += '📝 ' + parsed.description
+          }
+          messages.value[aiMsgIndex].content = display
+        } catch {
+          // keep raw
+        }
+        scrollToBottom()
+      },
+    },
+  )
+}
+
+function updatePreview() {
+  if (previewIframe.value) {
+    previewIframe.value.src = previewUrl.value
+  }
+}
+
+function handleSend() {
+  if (!currentInput.value.trim() || isGenerating.value) return
+  const text = currentInput.value.trim()
+  messages.value.push({ role: 'user', content: text })
+  currentInput.value = ''
+  startGeneration(text)
+}
+
+async function handleDeploy() {
+  deployLoading.value = true
+  try {
+    const res = await appApi.deployApp({ appId })
+    if (res.code === 0 && res.data) {
+      deployUrl.value = res.data
+      message.success('部署成功')
+    } else {
+      message.error(res.message || '部署失败')
+    }
+  } catch {
+    message.error('部署请求异常')
+  } finally {
+    deployLoading.value = false
+  }
+}
+
+function handleEdit() {
+  router.push('/app/edit/' + appId)
+}
+
+function scrollToBottom() {
+  nextTick(() => {
+    if (chatContainerRef.value) {
+      chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight
+    }
+  })
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    handleSend()
+  }
+}
+
+onMounted(() => { fetchAppDetail() })
+onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
+</script>
+
+<template>
+  <div class="chat-page">
+    <div class="top-bar">
+      <div class="top-left">
+        <a-button type="text" @click="router.push('/')" class="back-btn">← 返回</a-button>
+        <h2 class="app-title">{{ appDetail?.appName || '加载中...' }}</h2>
+      </div>
+      <div class="top-actions">
+        <a-button @click="handleEdit" v-if="appDetail">编辑</a-button>
+        <a-button type="primary" :loading="deployLoading" @click="handleDeploy" :disabled="!showPreview">部署</a-button>
+      </div>
+    </div>
+
+    <div class="main-body" :class="{ 'has-preview': showPreview }">
+      <div class="chat-panel">
+        <a-spin :spinning="loading" class="chat-spin">
+          <div class="messages" ref="chatContainerRef">
+            <div v-if="messages.length === 0 && !loading" class="empty-chat">
+              <p>输入描述开始生成网页应用</p>
+            </div>
+            <div v-for="(msg, i) in messages" :key="i" class="message-row" :class="msg.role">
+              <div class="message-bubble">
+                <div class="message-label">{{ msg.role === 'user' ? '你' : 'AI' }}</div>
+                <pre class="message-content">{{ msg.content || (isGenerating && i === messages.length - 1 ? '...' : '') }}</pre>
+              </div>
+            </div>
+            <div v-if="isGenerating" class="generating-indicator">AI 正在生成...</div>
+          </div>
+        </a-spin>
+        <div class="input-area">
+          <a-tooltip :title="isOwner ? '' : '无法在别人的作品下对话哦~'">
+            <a-textarea
+              v-model:value="currentInput"
+              :placeholder="isOwner ? '输入修改要求，按 Enter 发送...' : '无法在别人的作品下对话哦~'"
+              :disabled="isGenerating || loading || !isOwner"
+              :rows="2"
+              @keydown="handleKeydown"
+              class="chat-input"
+            />
+          </a-tooltip>
+          <a-button type="primary" :disabled="isGenerating || loading || !currentInput.trim() || !isOwner" @click="handleSend" class="send-btn">发送</a-button>
+        </div>
+      </div>
+
+      <div class="preview-panel" v-if="showPreview">
+        <div class="preview-header">
+          <span class="preview-label">预览</span>
+          <a-button type="link" size="small" v-if="deployUrl" :href="deployUrl" target="_blank">打开部署的应用 ↗</a-button>
+        </div>
+        <div class="preview-container">
+          <iframe ref="previewIframe" class="preview-iframe" title="代码预览" />
+        </div>
+      </div>
+      <div class="preview-placeholder" v-else-if="!loading">
+        <div class="placeholder-content">
+          <div class="placeholder-icon">🖥️</div>
+          <p>生成完成后，页面效果将展示在这里</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.chat-page { height: calc(100vh - var(--header-height)); display: flex; flex-direction: column; background: var(--bg-primary); }
+.top-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: var(--card-bg); border-bottom: 1px solid var(--card-border); flex-shrink: 0; }
+.top-left { display: flex; align-items: center; gap: 12px; }
+.back-btn { font-size: 14px; color: var(--text-secondary); }
+.app-title { font-size: 16px; font-weight: 600; margin: 0; color: var(--text-primary); }
+.top-actions { display: flex; gap: 8px; }
+.main-body { display: flex; flex: 1; overflow: hidden; }
+.chat-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.has-preview .chat-panel { max-width: 50%; border-right: 1px solid var(--card-border); }
+.chat-spin { flex: 1; display: flex; flex-direction: column; }
+.messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.message-row { display: flex; }
+.message-row.user { justify-content: flex-end; }
+.message-row.ai { justify-content: flex-start; }
+.message-bubble { max-width: 95%; padding: 10px 14px; border-radius: 10px; background: var(--card-bg); border: 1px solid var(--card-border); overflow: hidden; }
+.message-row.user .message-bubble { background: var(--btn-primary-bg); color: #fff; border-color: var(--btn-primary-bg); max-width: 80%; }
+.message-label { font-size: 11px; font-weight: 600; margin-bottom: 4px; opacity: 0.7; }
+.message-content { font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; margin: 0; font-family: inherit; overflow-x: auto; max-height: 60vh; overflow-y: auto; }
+.generating-indicator { padding: 8px 20px; font-size: 13px; color: var(--text-secondary); }
+.input-area { display: flex; gap: 8px; padding: 12px 20px; background: var(--card-bg); border-top: 1px solid var(--card-border); }
+.chat-input { flex: 1; border-radius: 8px; font-size: 14px; }
+.send-btn { align-self: flex-end; border-radius: var(--btn-primary-radius); }
+.preview-panel { flex: 1; display: flex; flex-direction: column; background: #fff; }
+.preview-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--card-border); font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.preview-container { flex: 1; overflow-y: auto; background: #fff; }
+.preview-iframe { width: 100%; height: 100%; min-height: 500px; border: none; display: block; }
+.preview-placeholder { flex: 1; display: flex; align-items: center; justify-content: center; background: var(--card-bg); }
+.placeholder-content { text-align: center; color: var(--text-tertiary); }
+.placeholder-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-chat { text-align: center; color: var(--text-tertiary); padding: 40px; }
+</style>

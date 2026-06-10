@@ -4,14 +4,14 @@ declare namespace API {
   }
 
   type AppAdminUpdateRequest = {
-    id?: number
+    id?: string
     appName?: string
     cover?: string
     priority?: number
   }
 
   type AppDeployRequest = {
-    appId?: number
+    appId?: string
   }
 
   type AppQueryRequest = {
@@ -19,23 +19,23 @@ declare namespace API {
     pageSize?: number
     sortField?: string
     sortOrder?: string
-    id?: number
+    id?: string
     appName?: string
     cover?: string
     initPrompt?: string
     codeGenType?: string
     deployKey?: string
     priority?: number
-    userId?: number
+    userId?: string
   }
 
   type AppUpdateRequest = {
-    id?: number
+    id?: string
     appName?: string
   }
 
   type AppVO = {
-    id?: number
+    id?: string
     appName?: string
     cover?: string
     initPrompt?: string
@@ -43,10 +43,27 @@ declare namespace API {
     deployKey?: string
     deployedTime?: string
     priority?: number
-    userId?: number
+    userId?: string
     createTime?: string
     updateTime?: string
     user?: UserVO
+  }
+
+  type chatToGenCodeParams = {
+    appId: string
+    message: string
+  }
+
+  type getAppVOByIdByAdminParams = {
+    id: string
+  }
+
+  type getAppVOByIdParams = {
+    id: string
+  }
+
+  type serveStaticResourceParams = {
+    deployKey: string
   }
 
   type BaseResponseAppVO = {
@@ -103,33 +120,20 @@ declare namespace API {
     message?: string
   }
 
-  type chatToGenCodeParams = {
-    appId: number
-    message: string
-  }
-
   type DeleteRequest = {
-    id?: number
-  }
-
-  type getAppVOByIdByAdminParams = {
-    id: number
-  }
-
-  type getAppVOByIdParams = {
-    id: number
+    id?: string
   }
 
   type getUserByIdParams = {
-    id: number
+    id: string
   }
 
   type getUserVOByIdParams = {
-    id: number
+    id: string
   }
 
   type LoginUserVO = {
-    id?: number
+    id?: string
     userAccount?: string
     userName?: string
     userAvatar?: string
@@ -159,12 +163,8 @@ declare namespace API {
 
   type ServerSentEventString = true
 
-  type serveStaticResourceParams = {
-    deployKey: string
-  }
-
   type User = {
-    id?: number
+    id?: string
     userAccount?: string
     userPassword?: string
     userName?: string

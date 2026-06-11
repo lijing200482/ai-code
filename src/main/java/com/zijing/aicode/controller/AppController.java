@@ -5,7 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
-import com.zijing.aicode.ai.model.enums.CodeGenTypeEnum;
+import com.zijing.aicode.entity.enums.CodeGenTypeEnum;
 import com.zijing.aicode.annotation.AuthCheck;
 import com.zijing.aicode.common.BaseResponse;
 import com.zijing.aicode.common.DeleteRequest;

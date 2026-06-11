@@ -1,4 +1,4 @@
-package com.zijing.aicode.ai.model.enums;
+package com.zijing.aicode.entity.enums;
 
 import cn.hutool.core.util.ObjUtil;
 import lombok.Getter;

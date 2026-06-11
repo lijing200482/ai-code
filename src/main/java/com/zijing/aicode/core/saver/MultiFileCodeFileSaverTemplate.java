@@ -2,7 +2,7 @@ package com.zijing.aicode.core.saver;
 
 import cn.hutool.core.util.StrUtil;
 import com.zijing.aicode.ai.model.MultiFileCodeResult;
-import com.zijing.aicode.ai.model.enums.CodeGenTypeEnum;
+import com.zijing.aicode.entity.enums.CodeGenTypeEnum;
 import com.zijing.aicode.exception.BusinessException;
 import com.zijing.aicode.exception.ErrorCode;
 

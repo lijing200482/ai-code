@@ -3,13 +3,13 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import * as appApi from '@/api/appController'
+import * as chatHistoryApi from '@/api/chatHistoryController'
 import { connectSSE } from '@/utils/sse'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const router = useRouter()
 const appId = route.params.appId as string
-const isViewOnly = route.query.view === '1'
 const userStore = useUserStore()
 
 const appDetail = ref<API.AppVO | null>(null)
@@ -30,6 +30,43 @@ const previewUrl = ref('')
 const deployUrl = ref('')
 const deployLoading = ref(false)
 
+/**
+ * 将 AI 生成的代码 JSON 格式化为可读的聊天消息
+ */
+function formatCodeContent(content: string): string {
+  try {
+    const parsed = JSON.parse(content)
+    // 只处理包含 htmlCode/cssCode/jsCode 的代码 JSON
+    if (parsed.htmlCode || parsed.cssCode || parsed.jsCode) {
+      let display = ''
+      if (parsed.htmlCode) {
+        display += '--- index.html ---\n' + parsed.htmlCode + '\n\n'
+      }
+      if (parsed.cssCode) {
+        display += '--- style.css ---\n' + parsed.cssCode + '\n\n'
+      }
+      if (parsed.jsCode) {
+        display += '--- script.js ---\n' + parsed.jsCode + '\n\n'
+      }
+      if (parsed.description) {
+        display += '📝 ' + parsed.description
+      }
+      return display || content
+    }
+    return content
+  } catch {
+    return content
+  }
+}
+
+// 游标分页状态
+const loadingHistory = ref(false)
+const hasMore = ref(false)
+const cursor = ref<string | undefined>(undefined)
+const totalChatCount = ref(0)
+const initialLoadDone = ref(false)
+const historyLoadFailed = ref(false)
+
 async function fetchAppDetail() {
   loading.value = true
   try {
@@ -38,13 +75,19 @@ async function fetchAppDetail() {
       appDetail.value = res.data
       // 判断是否为应用所有者
       isOwner.value = !res.data.userId || res.data.userId === userStore.loginUser?.id
-      // 查看模式：不自动发送消息；非查看模式：自动发送初始提示词
-      if (isViewOnly) {
-        loadExistingPreview()
-      } else if (res.data.initPrompt) {
+
+      // 加载对话历史
+      await loadChatHistory()
+      initialLoadDone.value = true
+
+      // 自己的应用且没有对话历史，自动发送初始消息
+      if (isOwner.value && !historyLoadFailed.value && messages.value.length === 0 && res.data.initPrompt) {
         messages.value.push({ role: 'user', content: res.data.initPrompt })
         await nextTick()
         startGeneration(res.data.initPrompt)
+      } else if (totalChatCount.value >= 2) {
+        // 至少有 2 条对话记录，展示已生成的网站
+        loadExistingPreview()
       }
     } else {
       message.error('获取应用信息失败')
@@ -56,7 +99,75 @@ async function fetchAppDetail() {
   }
 }
 
-// 查看模式：加载已有作品预览
+/**
+ * 加载对话历史（游标查询，默认加载最近 10 条，后端按创建时间降序返回）
+ * 首次加载时保存总记录数用于判断 hasMore
+ * 加载更多时将旧消息插入列表头部（时间升序排列）
+ */
+async function loadChatHistory() {
+  loadingHistory.value = true
+  historyLoadFailed.value = false
+  try {
+    const params: API.listAppChatHistoryParams = {
+      appId: appId as unknown as number,
+      pageSize: 10,
+    }
+    if (cursor.value) {
+      params.lastCreateTime = cursor.value
+    }
+    const res = await chatHistoryApi.listAppChatHistory(params)
+    if (res.code === 0 && res.data) {
+      const records = res.data.records || []
+
+      // 首次加载时保存总记录数（优先用实际接收到的数量）
+      if (!cursor.value) {
+        totalChatCount.value = records.length
+      }
+
+      // 格式化为本地消息并反转（DESC → ASC），AI 消息需格式化 JSON
+      const historyMessages = records
+        .map(r => {
+          const role = (r.messageType === 'user' ? 'user' : 'ai') as 'user' | 'ai'
+          const content = role === 'ai' ? formatCodeContent(r.message || '') : (r.message || '')
+          return { role, content }
+        })
+        .reverse()
+
+      if (cursor.value) {
+        // 加载更多：在现有消息之前插入（更早的消息在上方）
+        messages.value = [...historyMessages, ...messages.value]
+      } else {
+        messages.value = historyMessages
+      }
+
+      // 更新游标：取本次返回的最后一条（即最早一条）的创建时间
+      if (records.length > 0) {
+        cursor.value = records[records.length - 1].createTime
+      } else {
+        cursor.value = undefined
+      }
+
+      // 判断是否还有更多（基于首次加载的总数）
+      hasMore.value = messages.value.length < totalChatCount.value
+    } else {
+      historyLoadFailed.value = true
+      message.error(res.message || '获取对话历史失败')
+    }
+  } catch (e) {
+    historyLoadFailed.value = true
+    message.error('获取对话历史请求异常')
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+function loadMore() {
+  if (!loadingHistory.value && hasMore.value) {
+    loadChatHistory()
+  }
+}
+
+// 加载已有作品预览
 function loadExistingPreview() {
   const codeGenType = appDetail.value?.codeGenType || 'multiFile'
   previewUrl.value = `http://localhost:8445/api/static/${codeGenType}_${appId}/`
@@ -103,29 +214,14 @@ function startGeneration(messageText: string) {
       onComplete: () => {
         isGenerating.value = false
         showPreview.value = true
-        // 构建预览 URL，从 tmp/code_output 读取
+        // 构建预览 URL
         const codeGenType = appDetail.value?.codeGenType || 'multiFile'
         previewUrl.value = `http://localhost:8445/api/static/${codeGenType}_${appId}/`
         nextTick(() => { updatePreview() })
-        // 格式化聊天消息
-        try {
-          const parsed = JSON.parse(generatedCode.value)
-          let display = '✅ 代码生成完成！\n\n'
-          if (parsed.htmlCode) {
-            display += '--- index.html ---\n' + parsed.htmlCode + '\n\n'
-          }
-          if (parsed.cssCode) {
-            display += '--- style.css ---\n' + parsed.cssCode + '\n\n'
-          }
-          if (parsed.jsCode) {
-            display += '--- script.js ---\n' + parsed.jsCode + '\n\n'
-          }
-          if (parsed.description) {
-            display += '📝 ' + parsed.description
-          }
-          messages.value[aiMsgIndex].content = display
-        } catch {
-          // keep raw
+        // 格式化生成的代码消息
+        const formatted = formatCodeContent(generatedCode.value)
+        if (formatted !== generatedCode.value) {
+          messages.value[aiMsgIndex].content = '✅ 代码生成完成！\n\n' + formatted
         }
         scrollToBottom()
       },
@@ -202,10 +298,18 @@ onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
 
     <div class="main-body" :class="{ 'has-preview': showPreview }">
       <div class="chat-panel">
-        <a-spin :spinning="loading" class="chat-spin">
-          <div class="messages" ref="chatContainerRef">
+        <div class="chat-body">
+          <div v-if="loading" class="chat-loading">
+            <a-spin tip="加载中..." />
+          </div>
+          <div class="messages" ref="chatContainerRef" v-show="!loading">
             <div v-if="messages.length === 0 && !loading" class="empty-chat">
               <p>输入描述开始生成网页应用</p>
+            </div>
+            <div v-if="hasMore" class="load-more-bar">
+              <a-button type="link" :loading="loadingHistory" @click="loadMore" class="load-more-btn">
+                加载更多对话...
+              </a-button>
             </div>
             <div v-for="(msg, i) in messages" :key="i" class="message-row" :class="msg.role">
               <div class="message-bubble">
@@ -215,7 +319,7 @@ onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
             </div>
             <div v-if="isGenerating" class="generating-indicator">AI 正在生成...</div>
           </div>
-        </a-spin>
+        </div>
         <div class="input-area">
           <a-tooltip :title="isOwner ? '' : '无法在别人的作品下对话哦~'">
             <a-textarea
@@ -243,7 +347,8 @@ onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
       <div class="preview-placeholder" v-else-if="!loading">
         <div class="placeholder-content">
           <div class="placeholder-icon">🖥️</div>
-          <p>生成完成后，页面效果将展示在这里</p>
+          <p v-if="initialLoadDone && totalChatCount === 0">输入描述开始生成网页应用</p>
+          <p v-else>生成完成后，页面效果将展示在这里</p>
         </div>
       </div>
     </div>
@@ -260,8 +365,11 @@ onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
 .main-body { display: flex; flex: 1; overflow: hidden; }
 .chat-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .has-preview .chat-panel { max-width: 50%; border-right: 1px solid var(--card-border); }
-.chat-spin { flex: 1; display: flex; flex-direction: column; }
+.chat-body { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+.chat-loading { flex: 1; display: flex; align-items: center; justify-content: center; }
 .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.load-more-bar { text-align: center; padding: 4px 0; }
+.load-more-btn { font-size: 13px; }
 .message-row { display: flex; }
 .message-row.user { justify-content: flex-end; }
 .message-row.ai { justify-content: flex-start; }

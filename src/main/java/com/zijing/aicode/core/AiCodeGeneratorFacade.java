@@ -1,9 +1,10 @@
 package com.zijing.aicode.core;
 
 import com.zijing.aicode.ai.AiCodeGeneratorService;
+import com.zijing.aicode.ai.AiCodeGeneratorServiceFactory;
 import com.zijing.aicode.ai.model.HtmlCodeResult;
 import com.zijing.aicode.ai.model.MultiFileCodeResult;
-import com.zijing.aicode.ai.model.enums.CodeGenTypeEnum;
+import com.zijing.aicode.entity.enums.CodeGenTypeEnum;
 import com.zijing.aicode.core.parser.CodeParserExecutor;
 import com.zijing.aicode.core.saver.CodeFileSaverExecutor;
 import com.zijing.aicode.exception.BusinessException;
@@ -20,12 +21,9 @@ import java.io.File;
 @Service
 public class AiCodeGeneratorFacade {
 
-    @Resource
-    private AiCodeGeneratorService streamingAiCodeGeneratorService;
 
     @Resource
-    private AiCodeGeneratorService aiCodeGeneratorService;
-
+    private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
 
     /**
      * 生成代码统一接口(响应式)
@@ -40,6 +38,7 @@ public class AiCodeGeneratorFacade {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "请选择代码生成模式");
         }
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 HtmlCodeResult result = aiCodeGeneratorService.generateHtmlCode(userMessage);
@@ -70,13 +69,14 @@ public class AiCodeGeneratorFacade {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "请选择代码生成模式");
         }
-        return switch (codeGenTypeEnum) {
+
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);        return switch (codeGenTypeEnum) {
             case HTML -> {
-                Flux<String> codeStream = streamingAiCodeGeneratorService.generateHtmlCodeStream(userMessage);
+                Flux<String> codeStream = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
                 yield processCodeStream(codeStream, codeGenTypeEnum, appId);
             }
             case MULTI_FILE -> {
-                Flux<String> codeStream = streamingAiCodeGeneratorService.generateMultiFileCodeStream(userMessage);
+                Flux<String> codeStream = aiCodeGeneratorService.generateMultiFileCodeStream(userMessage);
                 yield processCodeStream(codeStream, codeGenTypeEnum, appId);
             }
             default -> {

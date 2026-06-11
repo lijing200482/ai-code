@@ -1,6 +1,6 @@
 package com.zijing.aicode.core;
 
-import com.zijing.aicode.ai.model.enums.CodeGenTypeEnum;
+import com.zijing.aicode.entity.enums.CodeGenTypeEnum;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;

@@ -44,6 +44,7 @@ function handleLogout() {
         <a-menu-item v-if="userStore.isLoggedIn" key="my-apps" @click="handleMenuClick({ key: 'my-apps' })">我的应用</a-menu-item>
         <a-menu-item v-if="userStore.isAdmin" key="/admin/user" @click="handleMenuClick({ key: '/admin/user' })">用户管理</a-menu-item>
         <a-menu-item v-if="userStore.isAdmin" key="/admin/app" @click="handleMenuClick({ key: '/admin/app' })">应用管理</a-menu-item>
+        <a-menu-item v-if="userStore.isAdmin" key="/admin/chat" @click="handleMenuClick({ key: '/admin/chat' })">对话管理</a-menu-item>
       </a-menu>
     </div>
 

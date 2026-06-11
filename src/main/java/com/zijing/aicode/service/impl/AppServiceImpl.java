@@ -8,7 +8,8 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
-import com.zijing.aicode.ai.model.enums.CodeGenTypeEnum;
+import com.zijing.aicode.entity.enums.ChatHistoryMessageTypeEnum;
+import com.zijing.aicode.entity.enums.CodeGenTypeEnum;
 import com.zijing.aicode.constant.AppConstant;
 import com.zijing.aicode.core.AiCodeGeneratorFacade;
 import com.zijing.aicode.entity.dto.app.AppQueryRequest;
@@ -21,12 +22,17 @@ import com.zijing.aicode.exception.ErrorCode;
 import com.zijing.aicode.exception.ThrowUtils;
 import com.zijing.aicode.mapper.AppMapper;
 import com.zijing.aicode.service.AppService;
+import com.zijing.aicode.service.ChatHistoryService;
 import com.zijing.aicode.service.UserService;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.View;
 import reactor.core.publisher.Flux;
 
 import java.io.File;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +46,7 @@ import java.util.stream.Collectors;
  * @author zijing
  */
 @Service
+@Slf4j
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
 
     @Resource
@@ -47,6 +54,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    @Resource
+    private ChatHistoryService chatHistoryService;
+
 
 
     /**
@@ -74,8 +85,27 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用代码生成类型不支持");
         }
-        //5.调用ai接口生成代码
-        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+        //5.添加用户消息到对话历史
+        chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+        //6.调用ai接口生成代码(流式)
+        Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+        //7.收集AI响应的内容并在完成后记录到对话历史中
+        StringBuilder aiResponseBuilder = new StringBuilder();
+        return contentFlux.map(chunk -> {
+            //收集AI响应的内容
+            aiResponseBuilder.append(chunk);
+            return chunk;
+        }).doOnComplete(() -> {
+            //流式响应完成后，添加AI消息到对话历史
+            String aiResponse = aiResponseBuilder.toString();
+            if (StrUtil.isNotBlank(aiResponse)) {
+                chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+            }
+        }).doOnError(error -> {
+            //如果AI回复失败，记录消息
+            String errorMessage = "Ai回复失败" + error.getMessage();
+            chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+        });
     }
 
 
@@ -130,6 +160,33 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         return String.format("%s/%s", AppConstant.CODE_DEPLOY_HOST, deployKey);
     }
 
+    /**
+     * 删除应用时关联删除对话历史
+     *
+     * @param id 应用ID
+     * @return 是否成功
+     */
+    @Override
+    public boolean removeById(Serializable id) {
+        if (id == null) {
+            return false;
+        }
+        // 转换为 Long 类型
+        Long appId = Long.valueOf(id.toString());
+        if (appId <= 0) {
+            return false;
+        }
+        // 先删除关联的对话历史
+        try {
+            chatHistoryService.deleteByAppId(appId);
+        } catch (Exception e) {
+            // 记录日志但不阻止应用删除
+            log.error("删除应用关联对话历史失败：{}", e.getMessage());
+        }
+        // 删除应用
+        return super.removeById(id);
+    }
+
 
     /**
      *  构造 AppVO 对象
@@ -174,16 +231,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         Long userId = appQueryRequest.getUserId();
         String sortField = appQueryRequest.getSortField();
         String sortOrder = appQueryRequest.getSortOrder();
-        return QueryWrapper.create()
-                .eq("id", id)
-                .like("appName", appName)
-                .like("cover", cover)
-                .like("initPrompt", initPrompt)
-                .eq("codeGenType", codeGenType)
-                .eq("deployKey", deployKey)
-                .eq("priority", priority)
-                .eq("userId", userId)
-                .orderBy(sortField, "ascend".equals(sortOrder));
+        return QueryWrapper.create().eq("id", id).like("appName", appName).like("cover", cover).like("initPrompt", initPrompt).eq("codeGenType", codeGenType).eq("deployKey", deployKey).eq("priority", priority).eq("userId", userId).orderBy(sortField, "ascend".equals(sortOrder));
     }
 
     /**
@@ -197,12 +245,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
             return new ArrayList<>();
         }
         // 批量获取用户信息，避免 N+1 查询问题
-        Set<Long> userIds = appList.stream()
-                .map(App::getUserId)
-                .collect(Collectors.toSet());
+        Set<Long> userIds = appList.stream().map(App::getUserId).collect(Collectors.toSet());
 
-        Map<Long, UserVO> userVOMap = userService.listByIds(userIds).stream()
-                .collect(Collectors.toMap(User::getId, userService::getUserVO));
+        Map<Long, UserVO> userVOMap = userService.listByIds(userIds).stream().collect(Collectors.toMap(User::getId, userService::getUserVO));
 
         return appList.stream().map(app -> {
             AppVO appVO = getAppVO(app);

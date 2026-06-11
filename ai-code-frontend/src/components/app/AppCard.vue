@@ -8,7 +8,7 @@ defineProps<{
 const router = useRouter()
 
 function goToChat(app: API.AppVO) {
-  if (app.id) router.push(`/app/chat/${app.id}?view=1`)
+  if (app.id) router.push(`/app/chat/${app.id}`)
 }
 
 function viewDeployed(app: API.AppVO) {

@@ -38,3 +38,4 @@ build/
 
 /src/main/resources/application-local.yml
 tmp
+/document.md

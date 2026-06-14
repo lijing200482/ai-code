@@ -2,6 +2,7 @@ package com.zijing.aicode.service;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
+import com.zijing.aicode.entity.dto.app.AppAddRequest;
 import com.zijing.aicode.entity.dto.app.AppQueryRequest;
 import com.zijing.aicode.entity.po.App;
 import com.zijing.aicode.entity.po.User;
@@ -35,6 +36,22 @@ public interface AppService extends IService<App> {
      * @return
      */
     Flux<String> chatToGenCode(Long appId, String message, User loginUser);
+
+    /**
+     * 异步生成应用截图并更新封面
+     *
+     * @param appId 应用ID
+     * @param appUrl 应用访问URL
+     */
+    void generateAppScreenshotAsync(Long appId, String appUrl);
+
+    /**
+     * 创建app
+     * @param appAddRequest
+     * @param loginUser
+     * @return
+     */
+    Long createApp(AppAddRequest appAddRequest, User loginUser);
 
     /**
      * 构造 AppVO 对象

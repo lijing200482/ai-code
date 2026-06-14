@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
+import axios from 'axios'
 import * as appApi from '@/api/appController'
 import * as chatHistoryApi from '@/api/chatHistoryController'
 import { connectSSE } from '@/utils/sse'
@@ -29,14 +30,28 @@ const previewUrl = ref('')
 
 const deployUrl = ref('')
 const deployLoading = ref(false)
+const downloadLoading = ref(false)
+
+/** 是否为 Vue 项目 */
+const isVueProject = computed(() => appDetail.value?.codeGenType === 'vue_project')
+
+/** 生成类型标签映射 */
+const codeGenTypeLabel = computed(() => {
+  const map: Record<string, string> = {
+    html: '原生 HTML',
+    multi_file: '多文件模式',
+    vue_project: 'Vue 工程',
+  }
+  return appDetail.value?.codeGenType ? (map[appDetail.value.codeGenType] || appDetail.value.codeGenType) : ''
+})
 
 /**
- * 将 AI 生成的代码 JSON 格式化为可读的聊天消息
+ * 将 AI 生成的代码格式化为可读的聊天消息
  */
 function formatCodeContent(content: string): string {
   try {
     const parsed = JSON.parse(content)
-    // 只处理包含 htmlCode/cssCode/jsCode 的代码 JSON
+    // 处理旧版结构化 JSON（htmlCode/cssCode/jsCode）
     if (parsed.htmlCode || parsed.cssCode || parsed.jsCode) {
       let display = ''
       if (parsed.htmlCode) {
@@ -58,6 +73,7 @@ function formatCodeContent(content: string): string {
     return content
   }
 }
+
 
 // 游标分页状态
 const loadingHistory = ref(false)
@@ -169,7 +185,21 @@ function loadMore() {
 
 // 加载已有作品预览
 function loadExistingPreview() {
-  const codeGenType = appDetail.value?.codeGenType || 'multiFile'
+  // Vue 项目已部署：直接展示部署链接
+  if (isVueProject.value && appDetail.value?.deployKey) {
+    // 重新构造部署 URL（与 handleDeploy 一致）
+    deployUrl.value = `http://localhost/${appDetail.value.deployKey}`
+    previewUrl.value = deployUrl.value
+    showPreview.value = true
+    nextTick(() => { updatePreview() })
+    return
+  }
+  if (isVueProject.value) {
+    // Vue 项目未部署，不显示 iframe 预览
+    showPreview.value = false
+    return
+  }
+  const codeGenType = appDetail.value?.codeGenType || 'multi_file'
   previewUrl.value = `http://localhost:8445/api/static/${codeGenType}_${appId}/`
   showPreview.value = true
   nextTick(() => { updatePreview() })
@@ -213,15 +243,19 @@ function startGeneration(messageText: string) {
       },
       onComplete: () => {
         isGenerating.value = false
-        showPreview.value = true
-        // 构建预览 URL
-        const codeGenType = appDetail.value?.codeGenType || 'multiFile'
-        previewUrl.value = `http://localhost:8445/api/static/${codeGenType}_${appId}/`
-        nextTick(() => { updatePreview() })
-        // 格式化生成的代码消息
         const formatted = formatCodeContent(generatedCode.value)
-        if (formatted !== generatedCode.value) {
-          messages.value[aiMsgIndex].content = '✅ 代码生成完成！\n\n' + formatted
+        if (isVueProject.value) {
+          // Vue 项目无法直接静态预览，需要构建部署
+          messages.value[aiMsgIndex].content = '✅ Vue 项目生成完成！\n\n' + (formatted !== generatedCode.value ? formatted : generatedCode.value) + '\n\n---\n点击「部署」按钮构建并查看效果'
+          showPreview.value = false
+        } else {
+          showPreview.value = true
+          const codeGenType = appDetail.value?.codeGenType || 'multi_file'
+          previewUrl.value = `http://localhost:8445/api/static/${codeGenType}_${appId}/`
+          nextTick(() => { updatePreview() })
+          if (formatted !== generatedCode.value) {
+            messages.value[aiMsgIndex].content = '✅ 代码生成完成！\n\n' + formatted
+          }
         }
         scrollToBottom()
       },
@@ -249,6 +283,12 @@ async function handleDeploy() {
     const res = await appApi.deployApp({ appId })
     if (res.code === 0 && res.data) {
       deployUrl.value = res.data
+      // Vue 项目部署后在预览 iframe 中展示
+      if (isVueProject.value) {
+        showPreview.value = true
+        previewUrl.value = res.data
+        nextTick(() => { updatePreview() })
+      }
       message.success('部署成功')
     } else {
       message.error(res.message || '部署失败')
@@ -257,6 +297,37 @@ async function handleDeploy() {
     message.error('部署请求异常')
   } finally {
     deployLoading.value = false
+  }
+}
+
+async function handleDownload() {
+  downloadLoading.value = true
+  try {
+    const response = await axios.get(`http://localhost:8445/api/app/download/${appId}`, {
+      responseType: 'blob',
+      withCredentials: true,
+    })
+    const contentDisposition = response.headers['content-disposition'] as string | undefined
+    let fileName = `${appId}.zip`
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename[^;=\n]*=["']?([^"';\n]*)["']?/i)
+      if (match && match[1]) {
+        fileName = match[1]
+      }
+    }
+    const url = window.URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    message.success('下载成功')
+  } catch {
+    message.error('下载失败')
+  } finally {
+    downloadLoading.value = false
   }
 }
 
@@ -289,10 +360,12 @@ onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
       <div class="top-left">
         <a-button type="text" @click="router.push('/')" class="back-btn">← 返回</a-button>
         <h2 class="app-title">{{ appDetail?.appName || '加载中...' }}</h2>
+        <a-tag v-if="codeGenTypeLabel" class="type-tag">{{ codeGenTypeLabel }}</a-tag>
       </div>
       <div class="top-actions">
         <a-button @click="handleEdit" v-if="appDetail">编辑</a-button>
-        <a-button type="primary" :loading="deployLoading" @click="handleDeploy" :disabled="!showPreview">部署</a-button>
+        <a-button :loading="downloadLoading" @click="handleDownload">下载代码</a-button>
+        <a-button type="primary" :loading="deployLoading" @click="handleDeploy" :disabled="!showPreview && !isVueProject">部署</a-button>
       </div>
     </div>
 
@@ -347,7 +420,8 @@ onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
       <div class="preview-placeholder" v-else-if="!loading">
         <div class="placeholder-content">
           <div class="placeholder-icon">🖥️</div>
-          <p v-if="initialLoadDone && totalChatCount === 0">输入描述开始生成网页应用</p>
+          <p v-if="isVueProject && totalChatCount > 0">Vue 项目需部署后才能预览</p>
+          <p v-else-if="initialLoadDone && totalChatCount === 0">输入描述开始生成网页应用</p>
           <p v-else>生成完成后，页面效果将展示在这里</p>
         </div>
       </div>
@@ -359,6 +433,7 @@ onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
 .chat-page { height: calc(100vh - var(--header-height)); display: flex; flex-direction: column; background: var(--bg-primary); }
 .top-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: var(--card-bg); border-bottom: 1px solid var(--card-border); flex-shrink: 0; }
 .top-left { display: flex; align-items: center; gap: 12px; }
+.type-tag { font-size: 12px; }
 .back-btn { font-size: 14px; color: var(--text-secondary); }
 .app-title { font-size: 16px; font-weight: 600; margin: 0; color: var(--text-primary); }
 .top-actions { display: flex; gap: 8px; }

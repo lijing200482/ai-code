@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useUserStore } from '@/stores/user'
@@ -14,6 +14,17 @@ const isAdmin = userStore.isAdmin
 const loading = ref(false)
 const submitting = ref(false)
 const formRef = ref()
+const codeGenTypeValue = ref('')
+
+/** 生成类型标签 */
+const codeGenTypeLabel = computed(() => {
+  const map: Record<string, string> = {
+    html: '原生 HTML',
+    multi_file: '多文件模式',
+    vue_project: 'Vue 工程',
+  }
+  return codeGenTypeValue.value ? (map[codeGenTypeValue.value] || codeGenTypeValue.value) : ''
+})
 
 const formData = reactive<{
   appName: string
@@ -35,6 +46,7 @@ async function fetchApp() {
       formData.appName = res.data.appName || ''
       formData.cover = res.data.cover || ''
       formData.priority = res.data.priority
+      codeGenTypeValue.value = res.data.codeGenType || ''
     } else {
       message.error('获取应用信息失败')
     }
@@ -99,6 +111,11 @@ onMounted(() => {
             />
           </a-form-item>
 
+          <a-form-item label="生成类型">
+            <a-tag v-if="codeGenTypeLabel">{{ codeGenTypeLabel }}</a-tag>
+            <span v-else class="text-muted">未知</span>
+          </a-form-item>
+
           <a-form-item label="应用封面" v-if="isAdmin">
             <a-input
               v-model:value="formData.cover"
@@ -148,4 +165,5 @@ onMounted(() => {
   margin-bottom: 24px;
   color: var(--text-primary);
 }
+.text-muted { color: var(--text-tertiary); font-size: 13px; }
 </style>

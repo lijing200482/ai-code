@@ -3,7 +3,7 @@
 
 <template>
   <a-layout-footer class="footer">
-    版权所有 © 2026 Ai零代码生成平台
+    版权所有 © 2026 小景的AI应用生成
   </a-layout-footer>
 </template>
 

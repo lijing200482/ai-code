@@ -92,7 +92,7 @@ async function handleRegister() {
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h2 class="card-title">欢迎使用 Ai零代码生成平台</h2>
+      <h2 class="card-title">欢迎使用 小景的AI应用生成</h2>
 
       <a-tabs v-model:activeKey="activeTab" centered>
         <!-- 登录 -->

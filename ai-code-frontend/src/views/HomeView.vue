@@ -112,7 +112,7 @@ onMounted(() => {
   <div class="home-page">
     <!-- Hero 区域 -->
     <div class="hero-section">
-      <h1 class="hero-title">AI 零代码生成平台</h1>
+      <h1 class="hero-title">小景的AI应用生成</h1>
       <p class="hero-subtitle">输入描述，AI 自动生成网页应用</p>
 
       <div class="input-area">

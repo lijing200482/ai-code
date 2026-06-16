@@ -6,6 +6,7 @@ import axios from 'axios'
 import * as appApi from '@/api/appController'
 import * as chatHistoryApi from '@/api/chatHistoryController'
 import { connectSSE } from '@/utils/sse'
+import { useVisualEdit } from '@/utils/visualEdit'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
@@ -31,6 +32,20 @@ const previewUrl = ref('')
 const deployUrl = ref('')
 const deployLoading = ref(false)
 const downloadLoading = ref(false)
+
+// 可视化编辑
+const {
+  isEditMode,
+  selectedElements,
+  editLoading,
+  editError,
+  toggleEditMode,
+  exitEditMode,
+  removeElement,
+  clearSelection,
+  buildElementPrompt,
+  onIframeLoad: onVisualEditIframeLoad,
+} = useVisualEdit(previewIframe)
 
 /** 是否为 Vue 项目 */
 const isVueProject = computed(() => appDetail.value?.codeGenType === 'vue_project')
@@ -189,7 +204,7 @@ function loadExistingPreview() {
   if (isVueProject.value && appDetail.value?.deployKey) {
     // 重新构造部署 URL（与 handleDeploy 一致）
     deployUrl.value = `http://localhost/${appDetail.value.deployKey}`
-    previewUrl.value = deployUrl.value
+    previewUrl.value = `/deploy-preview/${appDetail.value.deployKey}`
     showPreview.value = true
     nextTick(() => { updatePreview() })
     return
@@ -200,7 +215,7 @@ function loadExistingPreview() {
     return
   }
   const codeGenType = appDetail.value?.codeGenType || 'multi_file'
-  previewUrl.value = `http://localhost:8445/api/static/${codeGenType}_${appId}/`
+  previewUrl.value = `/api/static/${codeGenType}_${appId}/`
   showPreview.value = true
   nextTick(() => { updatePreview() })
 }
@@ -251,7 +266,7 @@ function startGeneration(messageText: string) {
         } else {
           showPreview.value = true
           const codeGenType = appDetail.value?.codeGenType || 'multi_file'
-          previewUrl.value = `http://localhost:8445/api/static/${codeGenType}_${appId}/`
+          previewUrl.value = `/api/static/${codeGenType}_${appId}/`
           nextTick(() => { updatePreview() })
           if (formatted !== generatedCode.value) {
             messages.value[aiMsgIndex].content = '✅ 代码生成完成！\n\n' + formatted
@@ -271,10 +286,15 @@ function updatePreview() {
 
 function handleSend() {
   if (!currentInput.value.trim() || isGenerating.value) return
-  const text = currentInput.value.trim()
-  messages.value.push({ role: 'user', content: text })
+  const baseText = currentInput.value.trim()
+  const elementPrompt = buildElementPrompt()
+  const fullText = baseText + elementPrompt
+  messages.value.push({ role: 'user', content: fullText })
   currentInput.value = ''
-  startGeneration(text)
+  // 发送后清除选中元素并退出编辑模式
+  clearSelection()
+  exitEditMode()
+  startGeneration(fullText)
 }
 
 async function handleDeploy() {
@@ -283,10 +303,12 @@ async function handleDeploy() {
     const res = await appApi.deployApp({ appId })
     if (res.code === 0 && res.data) {
       deployUrl.value = res.data
-      // Vue 项目部署后在预览 iframe 中展示
+      // Vue 项目部署后在预览 iframe 中展示（使用代理路径确保同域）
       if (isVueProject.value) {
         showPreview.value = true
-        previewUrl.value = res.data
+        // res.data 格式为 http://localhost/deployKey，转换为代理路径
+        const deployKey = res.data.split('/').pop()
+        previewUrl.value = `/deploy-preview/${deployKey}`
         nextTick(() => { updatePreview() })
       }
       message.success('部署成功')
@@ -394,17 +416,48 @@ onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
           </div>
         </div>
         <div class="input-area">
-          <a-tooltip :title="isOwner ? '' : '无法在别人的作品下对话哦~'">
-            <a-textarea
-              v-model:value="currentInput"
-              :placeholder="isOwner ? '输入修改要求，按 Enter 发送...' : '无法在别人的作品下对话哦~'"
-              :disabled="isGenerating || loading || !isOwner"
-              :rows="2"
-              @keydown="handleKeydown"
-              class="chat-input"
-            />
-          </a-tooltip>
-          <a-button type="primary" :disabled="isGenerating || loading || !currentInput.trim() || !isOwner" @click="handleSend" class="send-btn">发送</a-button>
+          <!-- 编辑模式错误提示 -->
+          <a-alert v-if="editError" type="warning" closable @close="editError = ''" class="edit-error-alert" :message="editError" />
+          <!-- 选中元素提示 -->
+          <div v-if="selectedElements.length > 0" class="selected-elements">
+            <a-alert
+              v-for="(el, i) in selectedElements"
+              :key="el.cssSelector"
+              type="info"
+              closable
+              @close="removeElement(i)"
+              class="element-alert"
+            >
+              <template #message>
+                <span class="element-tag">&lt;{{ el.tagName }}&gt;</span>
+                <span class="element-selector">{{ el.cssSelector }}</span>
+                <span v-if="el.textContent" class="element-text">{{ el.textContent }}</span>
+              </template>
+            </a-alert>
+          </div>
+          <div class="input-area-bottom">
+            <a-button
+              :type="isEditMode ? 'primary' : 'default'"
+              :class="{ 'edit-active': isEditMode }"
+              :disabled="isGenerating || loading || !isOwner || !showPreview"
+              :loading="editLoading"
+              @click="toggleEditMode(previewUrl)"
+              class="edit-mode-btn"
+            >
+              {{ editLoading ? '加载中...' : (isEditMode ? '退出编辑' : '可视化编辑') }}
+            </a-button>
+            <a-tooltip :title="isOwner ? '' : '无法在别人的作品下对话哦~'">
+              <a-textarea
+                v-model:value="currentInput"
+                :placeholder="isOwner ? '输入修改要求，按 Enter 发送...' : '无法在别人的作品下对话哦~'"
+                :disabled="isGenerating || loading || !isOwner"
+                :rows="2"
+                @keydown="handleKeydown"
+                class="chat-input"
+              />
+            </a-tooltip>
+            <a-button type="primary" :disabled="isGenerating || loading || !currentInput.trim() || !isOwner" @click="handleSend" class="send-btn">发送</a-button>
+          </div>
         </div>
       </div>
 
@@ -414,7 +467,7 @@ onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
           <a-button type="link" size="small" v-if="deployUrl" :href="deployUrl" target="_blank">打开部署的应用 ↗</a-button>
         </div>
         <div class="preview-container">
-          <iframe ref="previewIframe" class="preview-iframe" title="代码预览" />
+          <iframe ref="previewIframe" class="preview-iframe" title="代码预览" @load="onVisualEditIframeLoad" />
         </div>
       </div>
       <div class="preview-placeholder" v-else-if="!loading">
@@ -453,8 +506,18 @@ onUnmounted(() => { if (cancelSse.value) cancelSse.value() })
 .message-label { font-size: 11px; font-weight: 600; margin-bottom: 4px; opacity: 0.7; }
 .message-content { font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; margin: 0; font-family: inherit; overflow-x: auto; max-height: 60vh; overflow-y: auto; }
 .generating-indicator { padding: 8px 20px; font-size: 13px; color: var(--text-secondary); }
-.input-area { display: flex; gap: 8px; padding: 12px 20px; background: var(--card-bg); border-top: 1px solid var(--card-border); }
+.input-area { display: flex; flex-direction: column; gap: 6px; padding: 10px 20px 12px; background: var(--card-bg); border-top: 1px solid var(--card-border); }
+.selected-elements { display: flex; flex-wrap: wrap; gap: 6px; }
+.edit-error-alert { font-size: 13px; }
+.element-alert { padding: 2px 8px; font-size: 12px; border-radius: 6px; }
+.element-alert :deep(.ant-alert-message) { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.element-tag { font-family: monospace; font-weight: 600; color: #1890ff; background: #e6f7ff; padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+.element-selector { font-family: monospace; color: var(--text-secondary); font-size: 11px; }
+.element-text { color: var(--text-tertiary); font-size: 11px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.input-area-bottom { display: flex; gap: 8px; align-items: flex-end; }
 .chat-input { flex: 1; border-radius: 8px; font-size: 14px; }
+.edit-mode-btn { flex-shrink: 0; align-self: flex-end; font-size: 13px; }
+.edit-active { border-color: #e8471c; color: #e8471c; }
 .send-btn { align-self: flex-end; border-radius: var(--btn-primary-radius); }
 .preview-panel { flex: 1; display: flex; flex-direction: column; background: #fff; }
 .preview-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--card-border); font-size: 13px; font-weight: 600; color: var(--text-secondary); }

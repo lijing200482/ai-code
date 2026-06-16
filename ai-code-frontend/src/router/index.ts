@@ -1,77 +1,57 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import { useUserStore } from '@/stores/user'
+import HomePage from '@/pages/HomePage.vue'
+import UserLoginPage from '@/pages/user/UserLoginPage.vue'
+import UserRegisterPage from '@/pages/user/UserRegisterPage.vue'
+import UserManagePage from '@/pages/admin/UserManagePage.vue'
+import AppManagePage from '@/pages/admin/AppManagePage.vue'
+import AppChatPage from '@/pages/app/AppChatPage.vue'
+import AppEditPage from '@/pages/app/AppEditPage.vue'
+import ChatManagePage from "@/pages/admin/ChatManagePage.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: HomeView,
+      name: '主页',
+      component: HomePage,
     },
     {
       path: '/user/login',
-      name: 'userLogin',
-      component: () => import('../views/user/UserLoginView.vue'),
+      name: '用户登录',
+      component: UserLoginPage,
     },
     {
-      path: '/admin/user',
-      name: 'adminUser',
-      component: () => import('../views/admin/UserManageView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true },
+      path: '/user/register',
+      name: '用户注册',
+      component: UserRegisterPage,
     },
     {
-      path: '/app/chat/:appId',
-      name: 'appChat',
-      component: () => import('../views/AppChatView.vue'),
-      meta: { requiresAuth: true },
+      path: '/admin/userManage',
+      name: '用户管理',
+      component: UserManagePage,
     },
     {
-      path: '/app/edit/:appId',
-      name: 'appEdit',
-      component: () => import('../views/AppEditView.vue'),
-      meta: { requiresAuth: true },
+      path: '/admin/appManage',
+      name: '应用管理',
+      component: AppManagePage,
     },
     {
-      path: '/admin/app',
-      name: 'adminApp',
-      component: () => import('../views/admin/AppManageView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true },
+      path: '/admin/chatManage',
+      name: '对话管理',
+      component: ChatManagePage,
     },
     {
-      path: '/admin/chat',
-      name: 'adminChat',
-      component: () => import('../views/admin/ChatHistoryManageView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true },
+      path: '/app/chat/:id',
+      name: '应用对话',
+      component: AppChatPage,
+    },
+    {
+      path: '/app/edit/:id',
+      name: '编辑应用',
+      component: AppEditPage,
     },
   ],
-})
-
-// 路由守卫
-router.beforeEach(async (to) => {
-  // 不需要登录的页面放行
-  if (!to.meta.requiresAuth) {
-    return true
-  }
-
-  // 尝试获取登录用户信息（如果 store 中还没有）
-  const userStore = useUserStore()
-  if (!userStore.isLoggedIn) {
-    await userStore.fetchLoginUser()
-  }
-
-  // 未登录 → 跳转登录页
-  if (!userStore.isLoggedIn) {
-    return { path: '/user/login', query: { redirect: to.fullPath } }
-  }
-
-  // 需要管理员权限但不是管理员 → 跳首页
-  if (to.meta.requiresAdmin && !userStore.isAdmin) {
-    return { path: '/' }
-  }
-
-  return true
 })
 
 export default router

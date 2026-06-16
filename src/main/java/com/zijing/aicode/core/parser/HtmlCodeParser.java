@@ -15,12 +15,19 @@ import java.util.regex.Pattern;
 public class HtmlCodeParser implements CodeParser<HtmlCodeResult> {
 
     private static final Pattern HTML_CODE_PATTERN = Pattern.compile("```html\\s*\\n([\\s\\S]*?)```", Pattern.CASE_INSENSITIVE);
+    private static final Pattern JSON_BLOCK_PATTERN = Pattern.compile("```json\\s*\\n([\\s\\S]*?)```", Pattern.CASE_INSENSITIVE);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Override
     public HtmlCodeResult parseCode(String codeContent) {
-        // 优先尝试 JSON 解析（AI 按照系统提示返回 JSON）
-        HtmlCodeResult jsonResult = tryParseFromJson(codeContent);
+        // 如果被 ```json 包裹，先提取内部 JSON
+        String jsonContent = codeContent;
+        Matcher jsonMatcher = JSON_BLOCK_PATTERN.matcher(codeContent);
+        if (jsonMatcher.find()) {
+            jsonContent = jsonMatcher.group(1).trim();
+        }
+        // 优先尝试 JSON 解析
+        HtmlCodeResult jsonResult = tryParseFromJson(jsonContent);
         if (jsonResult != null) {
             return jsonResult;
         }

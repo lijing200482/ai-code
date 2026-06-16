@@ -1,9 +1,10 @@
-import axios, { type AxiosRequestConfig } from 'axios'
+import axios from 'axios'
 import { message } from 'ant-design-vue'
+import { API_BASE_URL } from '@/config/env'
 
 // 创建 Axios 实例
 const myAxios = axios.create({
-  baseURL: 'http://localhost:8445/api',
+  baseURL: API_BASE_URL,
   timeout: 60000,
   withCredentials: true,
 })
@@ -35,7 +36,7 @@ myAxios.interceptors.response.use(
         window.location.href = `/user/login?redirect=${window.location.href}`
       }
     }
-    return data
+    return response
   },
   function (error) {
     // Any status codes that falls outside the range of 2xx cause this function to trigger
@@ -44,13 +45,4 @@ myAxios.interceptors.response.use(
   },
 )
 
-// 覆盖类型：拦截器统一返回了 response.data, 所以 get/post 直接返回 T 而非 AxiosResponse<T>
-type RequestInstance = {
-  <T = any>(url: string, config?: AxiosRequestConfig): Promise<T>
-  get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>
-  post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>
-  put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T>
-  delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T>
-}
-
-export default myAxios as unknown as RequestInstance
+export default myAxios

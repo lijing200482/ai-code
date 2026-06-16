@@ -30,8 +30,8 @@ function handleLogout() {
 <template>
   <a-layout-header class="header">
     <div class="logo-wrapper">
-      <img src="@/assets/logo.svg" alt="logo" class="logo-img" />
-      <h1 class="site-title">Ai零代码生成平台</h1>
+      <img src="/favicon.ico" alt="logo" class="logo-img" />
+      <h1 class="site-title">小景的AI应用生成</h1>
     </div>
 
     <div class="menu-wrapper">

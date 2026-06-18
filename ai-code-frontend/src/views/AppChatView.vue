@@ -64,29 +64,45 @@ const codeGenTypeLabel = computed(() => {
  * 将 AI 生成的代码格式化为可读的聊天消息
  */
 function formatCodeContent(content: string): string {
+  if (!content) return content
   try {
     const parsed = JSON.parse(content)
-    // 处理旧版结构化 JSON（htmlCode/cssCode/jsCode）
-    if (parsed.htmlCode || parsed.cssCode || parsed.jsCode) {
-      let display = ''
+
+    // 处理带 htmlCode/cssCode/jsCode 的结构化 JSON
+    if (parsed.htmlCode !== undefined || parsed.cssCode !== undefined || parsed.jsCode !== undefined) {
+      const parts: string[] = []
+
+      if (parsed.description) {
+        parts.push('📝 ' + parsed.description)
+        parts.push('')
+      }
+
       if (parsed.htmlCode) {
-        display += '--- index.html ---\n' + parsed.htmlCode + '\n\n'
+        parts.push('━━━ index.html ━━━')
+        parts.push(parsed.htmlCode)
+        parts.push('')
       }
       if (parsed.cssCode) {
-        display += '--- style.css ---\n' + parsed.cssCode + '\n\n'
+        parts.push('━━━ style.css ━━━')
+        parts.push(parsed.cssCode)
+        parts.push('')
       }
       if (parsed.jsCode) {
-        display += '--- script.js ---\n' + parsed.jsCode + '\n\n'
+        parts.push('━━━ script.js ━━━')
+        parts.push(parsed.jsCode)
+        parts.push('')
       }
-      if (parsed.description) {
-        display += '📝 ' + parsed.description
-      }
-      return display || content
+
+      return parts.join('\n')
     }
-    return content
+
+    if (typeof parsed === 'object' && parsed !== null) {
+      return '```json\n' + JSON.stringify(parsed, null, 2) + '\n```'
+    }
   } catch {
-    return content
+    // 不是合法 JSON，原样返回
   }
+  return content
 }
 
 
@@ -235,22 +251,12 @@ function startGeneration(messageText: string) {
     messageText,
     {
       onMessage: (data) => {
-        const aiMsg = messages.value[aiMsgIndex]
-        try {
-          const parsed = JSON.parse(data)
-          if (parsed.d !== undefined) {
-            const chunk = typeof parsed.d === 'string' ? parsed.d : String(parsed.d)
-            aiMsg.content += chunk
-            generatedCode.value += chunk
-          } else {
-            aiMsg.content += data
-            generatedCode.value += data
-          }
-        } catch {
-          aiMsg.content += data
-          generatedCode.value += data
+        // 流式阶段只收集代码，不直接显示原始 JSON 片段
+        const parsed = JSON.parse(data)
+        if (parsed.d !== undefined) {
+          const chunk = typeof parsed.d === 'string' ? parsed.d : String(parsed.d)
+          generatedCode.value += chunk
         }
-        scrollToBottom()
       },
       onError: () => {
         message.error('生成连接中断，请重试')
@@ -268,9 +274,8 @@ function startGeneration(messageText: string) {
           const codeGenType = appDetail.value?.codeGenType || 'multi_file'
           previewUrl.value = `/api/static/${codeGenType}_${appId}/`
           nextTick(() => { updatePreview() })
-          if (formatted !== generatedCode.value) {
-            messages.value[aiMsgIndex].content = '✅ 代码生成完成！\n\n' + formatted
-          }
+          // 始终展示格式化后的内容，避免流式阶段污染的原始 JSON
+          messages.value[aiMsgIndex].content = '✅ 代码生成完成！\n\n' + formatted
         }
         scrollToBottom()
       },

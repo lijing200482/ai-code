@@ -3,6 +3,7 @@ package com.zijing.aicode.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.zijing.aicode.ai.guardrail.PromptSafetyInputGuardrail;
 import com.zijing.aicode.ai.tool.FileWriteTool;
 import com.zijing.aicode.entity.enums.CodeGenTypeEnum;
 import com.zijing.aicode.exception.BusinessException;
@@ -27,10 +28,10 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class AiCodeGeneratorServiceFactory {
 
-    @Resource
+    @Resource(name = "routingChatModel")
     private ChatModel chatModel;
 
-    @Resource
+    @Resource(name = "StreamingChatModelPrototype")
     private StreamingChatModel streamingChatModel;
 
     @Resource
@@ -90,12 +91,14 @@ public class AiCodeGeneratorServiceFactory {
                     .hallucinatedToolNameStrategy(toolExecutionRequest ->
                             ToolExecutionResultMessage.from(toolExecutionRequest,
                                     "Error: there is no such tool" + toolExecutionRequest.name()))
+                    .inputGuardrails(new PromptSafetyInputGuardrail()) //添加输入护轨
                     .build();
             //Html和多文件
             case HTML, MULTI_FILE -> AiServices.builder(AiCodeGeneratorService.class)
                     .chatModel(chatModel)
                     .streamingChatModel(streamingChatModel)
                     .chatMemory(chatMemory)
+                    .inputGuardrails(new PromptSafetyInputGuardrail()) //添加输入护轨
                     .build();
             default ->
                     throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型" + codeGeType.getValue());

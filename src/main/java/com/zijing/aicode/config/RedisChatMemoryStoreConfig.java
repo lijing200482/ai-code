@@ -3,8 +3,7 @@ package com.zijing.aicode.config;
 import cn.hutool.core.util.StrUtil;
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.community.store.memory.chat.redis.StoreType;
-import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,33 +14,17 @@ import org.springframework.context.annotation.Configuration;
 public class RedisChatMemoryStoreConfig {
 
     @Bean
-    @ConfigurationProperties(prefix = "langchain4j.community.redis")
-    public RedisChatMemoryProperties redisChatMemoryProperties() {
-        return new RedisChatMemoryProperties();
-    }
-
-    @Bean
-    public RedisChatMemoryStore redisChatMemoryStore(RedisChatMemoryProperties properties) {
+    public RedisChatMemoryStore redisChatMemoryStore(RedisProperties redisProperties) {
         RedisChatMemoryStore.Builder builder = RedisChatMemoryStore.builder()
-                .host(properties.getHost())
-                .port(properties.getPort())
-                .password(properties.getPassword())
+                .host(redisProperties.getHost())
+                .port(redisProperties.getPort())
+                .password(redisProperties.getPassword())
                 .storeType(StoreType.STRING)
-                .ttl(properties.getTtlSeconds());
-        if (StrUtil.isNotBlank(properties.getUser())) {
-            builder.user(properties.getUser());
+                .ttl(1800L);
+        if (StrUtil.isNotBlank(redisProperties.getPassword())) {
+            builder.user("default");
         }
         return builder.build();
-    }
-
-    @Data
-    public static class RedisChatMemoryProperties {
-        private String host;
-        private int port;
-        private String password;
-        private String user;
-        /** 对话记忆过期时间（秒），默认7天 */
-        private Long ttlSeconds;
     }
 }
 

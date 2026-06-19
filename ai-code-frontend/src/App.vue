@@ -21,6 +21,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  background: linear-gradient(180deg, #f0fdfa 0%, #ecfeff 30%, #e0f2fe 60%, #eff6ff 100%);
+  background-attachment: fixed;
 }
 
 html {

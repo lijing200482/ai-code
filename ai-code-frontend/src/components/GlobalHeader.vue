@@ -146,7 +146,7 @@ const doLogout = async () => {
 .site-title {
   margin: 0;
   font-size: 18px;
-  color: #1890ff;
+  color: #06b6d4;
 }
 
 .ant-menu-horizontal {

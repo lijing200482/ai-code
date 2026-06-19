@@ -85,10 +85,12 @@ const handleSubmit = async (values: API.UserRegisterRequest) => {
 
 <style scoped>
 #userRegisterPage {
-  background: white;
+  background: linear-gradient(135deg, #ecfeff 0%, #e0f2fe 50%, #dbeafe 100%);
   max-width: 720px;
   padding: 24px;
   margin: 24px auto;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(6, 182, 212, 0.08);
 }
 
 .title {

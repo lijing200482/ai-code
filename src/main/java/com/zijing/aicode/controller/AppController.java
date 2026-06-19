@@ -58,8 +58,6 @@ public class AppController {
     private ProjectDownloadService projectDownloadService;
 
 
-
-
     /**
      * 对话生成应用代码
      * @param appId

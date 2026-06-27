@@ -31,37 +31,6 @@
 | Axios | HTTP 客户端 |
 | Markdown-it + highlight.js | 消息渲染与代码高亮 |
 
-## 项目结构
-
-`
-ai-code/
-├── ai-code-frontend/          # 前端项目（Vue 3 + Vite）
-├── src/
-│   ├── main/java/com/zijing/aicode/
-│   │   ├── ai/                # AI 代码生成核心（模型配置、工具调用、安全护栏）
-│   │   ├── annotation/        # 自定义注解（权限校验等）
-│   │   ├── aop/               # AOP 切面（权限拦截等）
-│   │   ├── config/            # 配置类（COS、Redis、ChatModel 路由等）
-│   │   ├── constant/          # 常量定义
-│   │   ├── controller/        # REST API 控制器
-│   │   ├── core/              # 代码生成核心（解析器、保存器、门面）
-│   │   ├── entity/            # 数据实体（PO/DTO/VO/枚举）
-│   │   ├── exception/         # 全局异常处理
-│   │   ├── generator/         # 代码生成器（MyBatis 逆向）
-│   │   ├── langgraph4j/       # LangGraph 相关
-│   │   ├── manager/           # 业务管理器（COS 管理等）
-│   │   ├── mapper/            # MyBatis-Flex Mapper
-│   │   ├── ratelimter/        # 限流组件（Redisson + AOP）
-│   │   ├── service/           # 业务服务层
-│   │   └── utils/             # 工具类
-│   └── main/resources/
-│       ├── mapper/            # MyBatis XML 映射
-│       ├── prompt/            # AI 系统提示词模板
-│       ├── sql/               # 建表 SQL
-│       └── application*.yml   # 环境配置文件
-└── pom.xml                    # Maven 依赖配置
-`
-
 ## 功能特性
 
 - **AI 对话生成应用**：通过自然语言描述需求，AI 自动生成 HTML / 多文件 / Vue 项目代码
